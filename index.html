@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>EVM Asset Radar — Detect real assets on all EVM chains</title>
-  <meta name="description" content="Lightweight browser-only detector: paste any EVM address and see real native + ERC-20 assets across 15 chains, then continue on Debank." />
+  <meta name="description" content="Lightweight EVM address scanner using OKX balance data with DeBank and public explorer fallbacks across 15 chains." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -32,9 +32,8 @@
         <p class="eyebrow">No wallet connection · Key stays server-side · No signup</p>
         <h1>Detect real assets on <span class="accent">all EVM chains</span></h1>
         <p class="lede">
-          Paste any <code>0x…</code> address. We use DeBank's indexed portfolio data when configured,
-          with public explorer fallback across 15 EVM networks, then hand you off
-          to <strong>DeBank</strong> for the full portfolio view.
+          Paste any <code>0x…</code> address. We use OKX's address-based balance API when configured,
+          with DeBank and public explorer fallbacks across 15 EVM networks. The results stay read-only.
         </p>
 
         <form id="scanForm" class="scanner" autocomplete="off" novalidate>
@@ -69,7 +68,7 @@
           <div class="hero-stat"><strong id="statChains">15</strong><span>EVM chains scanned</span></div>
           <div class="hero-stat"><strong>0</strong><span>keys in the browser</span></div>
           <div class="hero-stat"><strong>Read-only</strong><span>no wallet connection</span></div>
-          <div class="hero-stat"><strong>↗ Debank</strong><span>one-click handoff</span></div>
+          <div class="hero-stat"><strong>OKX</strong><span>primary data source</span></div>
         </div>
       </div>
     </section>
@@ -121,9 +120,8 @@
         <div id="chainGrid" class="chain-grid"></div>
 
         <p class="disclaimer">
-          Balances come from DeBank's indexed API when configured, otherwise public Blockscout APIs with public-RPC fallback for native coins.
-          USD values are provider estimates and are not guaranteed.
-          This tool does not custody funds or sign transactions. Debank is a third-party service.
+          Balances come from OKX when configured, then DeBank or public Blockscout/RPC fallbacks. USD values are provider estimates and are not guaranteed.
+          The checked address is sent to the selected provider for balance lookup. This tool does not connect to wallets, custody funds, or sign transactions.
         </p>
       </div>
     </section>
@@ -133,7 +131,7 @@
       <div class="wrap">
         <p class="eyebrow">Coverage</p>
         <h2>15 EVM chains, scanned in parallel</h2>
-        <p class="muted">Each chain is queried independently — a slow or down explorer never blocks the others. Results stream in as they arrive.</p>
+        <p class="muted">OKX can return balances across all 15 configured EVM chains in one request. If unavailable, the scanner falls back to DeBank and then queries public explorers in parallel.</p>
         <div id="chainList" class="chain-list"></div>
       </div>
     </section>
@@ -147,17 +145,17 @@
           <article class="how-card">
             <span class="how-num">1</span>
             <h3>Paste an address</h3>
-            <p>Any <code>0x…</code> EVM address. We validate the format locally before querying DeBank or the public-chain fallback.</p>
+            <p>Any <code>0x…</code> EVM address. We validate the format locally before querying OKX or the configured fallbacks.</p>
           </article>
           <article class="how-card">
             <span class="how-num">2</span>
-            <h3>We query DeBank or explorers</h3>
-            <p>On Vercel, an optional same-origin serverless function calls DeBank's all-chain token endpoint. The DeBank AccessKey stays server-side; if it is not configured, we use public Blockscout APIs and public RPCs instead.</p>
+            <h3>We query OKX or fallbacks</h3>
+            <p>On Vercel, a same-origin serverless function signs requests to OKX's address-level token balance endpoint. Credentials stay server-side. If OKX is not configured, DeBank is tried next, followed by public Blockscout APIs and RPCs.</p>
           </article>
           <article class="how-card">
             <span class="how-num">3</span>
             <h3>Only real balances</h3>
-            <p>Zero balances are dropped. DeBank's indexed amounts and USD prices are used when configured; public chain data is the fallback. Prices are estimates, not guarantees.</p>
+            <p>Zero balances and OKX-flagged risk airdrops are excluded. OKX token balances and USD prices are preferred; DeBank and public chain data are fallbacks.</p>
           </article>
           <article class="how-card">
             <span class="how-num">4</span>
@@ -171,8 +169,8 @@
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <span>📡 EVM Asset Radar — lightweight, no client dependencies; DeBank key stays server-side.</span>
-      <span class="muted">Data: DeBank API or public explorers · Handoff: <a href="https://debank.com" target="_blank" rel="noopener noreferrer">DeBank ↗</a></span>
+      <span>📡 EVM Asset Radar — lightweight, no client dependencies; provider credentials stay server-side.</span>
+      <span class="muted">Data: OKX, DeBank or public explorers · Handoff: <a href="https://debank.com" target="_blank" rel="noopener noreferrer">DeBank ↗</a></span>
     </div>
   </footer>
 
