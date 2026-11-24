@@ -29,12 +29,12 @@
     <!-- HERO + SCANNER -->
     <section class="hero" id="scanner">
       <div class="wrap">
-        <p class="eyebrow">Browser-only · No API key · No signup</p>
+        <p class="eyebrow">No wallet connection · Key stays server-side · No signup</p>
         <h1>Detect real assets on <span class="accent">all EVM chains</span></h1>
         <p class="lede">
-          Paste any <code>0x…</code> address. We scan 15 EVM networks in parallel
-          for native coins + ERC-20 tokens with a real balance, then hand you off
-          to <strong>Debank</strong> for the full portfolio view.
+          Paste any <code>0x…</code> address. We use DeBank's indexed portfolio data when configured,
+          with public explorer fallback across 15 EVM networks, then hand you off
+          to <strong>DeBank</strong> for the full portfolio view.
         </p>
 
         <form id="scanForm" class="scanner" autocomplete="off" novalidate>
@@ -67,8 +67,8 @@
 
         <div class="hero-stats">
           <div class="hero-stat"><strong id="statChains">15</strong><span>EVM chains scanned</span></div>
-          <div class="hero-stat"><strong>0</strong><span>API keys needed</span></div>
-          <div class="hero-stat"><strong>100%</strong><span>runs in your browser</span></div>
+          <div class="hero-stat"><strong>0</strong><span>keys in the browser</span></div>
+          <div class="hero-stat"><strong>Read-only</strong><span>no wallet connection</span></div>
           <div class="hero-stat"><strong>↗ Debank</strong><span>one-click handoff</span></div>
         </div>
       </div>
@@ -121,8 +121,8 @@
         <div id="chainGrid" class="chain-grid"></div>
 
         <p class="disclaimer">
-          Balances come from public Blockscout APIs (no key) with public-RPC fallback for native coins.
-          USD values use the explorer's exchange rate where available and are estimates only.
+          Balances come from DeBank's indexed API when configured, otherwise public Blockscout APIs with public-RPC fallback for native coins.
+          USD values are provider estimates and are not guaranteed.
           This tool does not custody funds or sign transactions. Debank is a third-party service.
         </p>
       </div>
@@ -147,17 +147,17 @@
           <article class="how-card">
             <span class="how-num">1</span>
             <h3>Paste an address</h3>
-            <p>Any <code>0x…</code> EVM address. We validate the format locally — nothing is sent to our server (there is none).</p>
+            <p>Any <code>0x…</code> EVM address. We validate the format locally before querying DeBank or the public-chain fallback.</p>
           </article>
           <article class="how-card">
             <span class="how-num">2</span>
-            <h3>We query public explorers</h3>
-            <p>For each chain we call Blockscout's free <code>/api/v2/addresses/{address}/token-balances</code> endpoint and the address endpoint for the native coin. No API key, CORS-friendly.</p>
+            <h3>We query DeBank or explorers</h3>
+            <p>On Vercel, an optional same-origin serverless function calls DeBank's all-chain token endpoint. The DeBank AccessKey stays server-side; if it is not configured, we use public Blockscout APIs and public RPCs instead.</p>
           </article>
           <article class="how-card">
             <span class="how-num">3</span>
             <h3>Only real balances</h3>
-            <p>Tokens with zero balance are dropped. What you see is what the chain reports right now — native + ERC-20, with USD estimates where priced.</p>
+            <p>Zero balances are dropped. DeBank's indexed amounts and USD prices are used when configured; public chain data is the fallback. Prices are estimates, not guarantees.</p>
           </article>
           <article class="how-card">
             <span class="how-num">4</span>
@@ -171,8 +171,8 @@
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <span>📡 EVM Asset Radar — static, dependency-free, runs entirely in your browser.</span>
-      <span class="muted">Data: Blockscout public APIs · Handoff: <a href="https://debank.com" target="_blank" rel="noopener noreferrer">Debank ↗</a></span>
+      <span>📡 EVM Asset Radar — lightweight, no client dependencies; DeBank key stays server-side.</span>
+      <span class="muted">Data: DeBank API or public explorers · Handoff: <a href="https://debank.com" target="_blank" rel="noopener noreferrer">DeBank ↗</a></span>
     </div>
   </footer>
 
