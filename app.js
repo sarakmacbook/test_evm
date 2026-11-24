@@ -13,10 +13,10 @@ const CHAINS = [
   { id:"optimism",  name:"Optimism",        symbol:"OP",   chainId:10,     color:"#ff0420", debank:"op",     api:"https://optimism.blockscout.com",  explorer:"https://optimism.blockscout.com",  rpc:"https://optimism.llamarpc.com" },
   { id:"base",      name:"Base",            symbol:"ETH",  chainId:8453,   color:"#0052ff", debank:"base",   api:"https://base.blockscout.com",      explorer:"https://base.blockscout.com",      rpc:"https://base.llamarpc.com" },
   { id:"avalanche", name:"Avalanche C-Chain",symbol:"AVAX",chainId:43114,  color:"#e84142", debank:"avax",   api:"https://avalanche.blockscout.com", explorer:"https://avalanche.blockscout.com", rpc:"https://avalanche-c-chain-rpc.publicnode.com" },
-  { id:"gnosis",    name:"Gnosis",          symbol:"xDAI", chainId:100,    color:"#047857", debank:"gno",    api:"https://gnosis.blockscout.com",    explorer:"https://gnosis.blockscout.com",    rpc:"https://rpc.gnosischain.com" },
+  { id:"gnosis",    name:"Gnosis",          symbol:"xDAI", chainId:100,    color:"#047857", debank:"xdai",   api:"https://gnosis.blockscout.com",    explorer:"https://gnosis.blockscout.com",    rpc:"https://rpc.gnosischain.com" },
   { id:"linea",     name:"Linea",           symbol:"ETH",  chainId:59144,  color:"#61d7f4", debank:"linea",  api:"https://linea.blockscout.com",     explorer:"https://linea.blockscout.com",     rpc:"https://rpc.linea.build" },
-  { id:"scroll",    name:"Scroll",          symbol:"ETH",  chainId:534352, color:"#ffeeda", debank:"scroll", api:"https://scroll.blockscout.com",    explorer:"https://scroll.blockscout.com",    rpc:"https://rpc.scroll.io" },
-  { id:"zksync",    name:"zkSync Era",      symbol:"ETH",  chainId:324,    color:"#4c82fb", debank:"zksync", api:"https://zksync.blockscout.com",    explorer:"https://zksync.blockscout.com",    rpc:"https://mainnet.era.zksync.io" },
+  { id:"scroll",    name:"Scroll",          symbol:"ETH",  chainId:534352, color:"#ffeeda", debank:"scr",    api:"https://scroll.blockscout.com",    explorer:"https://scroll.blockscout.com",    rpc:"https://rpc.scroll.io" },
+  { id:"zksync",    name:"zkSync Era",      symbol:"ETH",  chainId:324,    color:"#4c82fb", debank:"era",    api:"https://zksync.blockscout.com",    explorer:"https://zksync.blockscout.com",    rpc:"https://mainnet.era.zksync.io" },
   { id:"mantle",    name:"Mantle",          symbol:"MNT",  chainId:5000,   color:"#7dd3c0", debank:"mantle", api:"https://mantle.blockscout.com",    explorer:"https://mantle.blockscout.com",    rpc:"https://rpc.mantle.xyz" },
   { id:"celo",      name:"Celo",            symbol:"CELO", chainId:42220,  color:"#fcff52", debank:"celo",   api:"https://celo.blockscout.com",      explorer:"https://celo.blockscout.com",      rpc:"https://forno.celo.org" },
   { id:"sonic",     name:"Sonic",           symbol:"S",    chainId:146,    color:"#f9a8d4", debank:"sonic",  api:"https://sonic.blockscout.com",     explorer:"https://sonic.blockscout.com",     rpc:"https://rpc.soniclabs.com" },
@@ -142,6 +142,51 @@ async function scanChain(chain, address) {
   return { chain, native, nativeUsd, tokens, totalUsd, hasAssets, error };
 }
 
+/* ---------- DeBank data adapter ---------- */
+async function scanWithDebank(address) {
+  const payload = await fetchJson(`/api/debank?address=${encodeURIComponent(address)}`, 15000);
+  if (!payload || !Array.isArray(payload.tokens)) throw new Error("DeBank API unavailable");
+
+  const byChain = new Map(CHAINS.map((chain) => [chain.debank, []]));
+  for (const item of payload.tokens) {
+    // DeBank's is_all response may include protocol-derived positions; only
+    // count balances marked as held in the wallet to avoid double counting.
+    if (item.is_wallet === false) continue;
+    const chainId = String(item.chain || "").toLowerCase();
+    if (byChain.has(chainId)) byChain.get(chainId).push(item);
+  }
+
+  return CHAINS.map((chain) => {
+    const listed = byChain.get(chain.debank) || [];
+    let native = null;
+    let nativeUsd = 0;
+    const tokens = [];
+    for (const item of listed) {
+      const id = String(item.id || "").toLowerCase();
+      const amount = Number(item.amount || 0);
+      if (!(amount > 0)) continue;
+      const price = Number(item.price || 0);
+      const usd = amount * price;
+      const isNative = id === chain.debank || item.is_native === true;
+      if (isNative) {
+        native = (native || 0) + amount;
+        nativeUsd += usd;
+      } else {
+        tokens.push({
+          symbol: item.optimized_symbol || item.display_symbol || item.symbol || "?",
+          name: item.name || item.symbol || "Unknown token",
+          address: item.id || "", decimals: Number(item.decimals || 0),
+          balance: amount, usd, type: "ERC-20", tokenId: null,
+        });
+      }
+    }
+    tokens.sort((a, b) => b.usd - a.usd);
+    const totalUsd = nativeUsd + tokens.reduce((sum, token) => sum + token.usd, 0);
+    const hasAssets = (native != null && native > 0) || tokens.length > 0;
+    return { chain, native, nativeUsd, tokens, totalUsd, hasAssets, error: null };
+  });
+}
+
 /* ---------- Rendering ---------- */
 function chainCardHtml(r, address, filter) {
   const { chain, native, nativeUsd, tokens, totalUsd, hasAssets, error } = r;
@@ -234,6 +279,18 @@ async function runScan(address) {
   updateProgress(0, CHAINS.length);
   resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  try {
+    scanResults = await scanWithDebank(address);
+    updateProgress(CHAINS.length, CHAINS.length);
+    progressText.textContent = `Done — ${CHAINS.length} chains scanned via DeBank.`;
+    renderResults();
+    return;
+  } catch {
+    // The static preview/local server or an unconfigured Vercel deployment
+    // has no DeBank proxy; retain the existing public-explorer scan as fallback.
+    progressText.textContent = "DeBank unavailable — using public explorers…";
+  }
+
   let done = 0;
   await Promise.all(CHAINS.map(async (chain) => {
     try {
@@ -245,12 +302,13 @@ async function runScan(address) {
         tmp.innerHTML = chainCardHtml(r, address, tokenSearch.value);
         card.replaceWith(tmp.firstElementChild);
       }
-    } catch (e) {
+    } catch {
       scanResults.push({ chain, native: null, nativeUsd: 0, tokens: [], totalUsd: 0, hasAssets: false, error: "Scan failed" });
     } finally {
       done++; updateProgress(done, CHAINS.length); renderResults();
     }
   }));
+  progressText.textContent = `Done — ${CHAINS.length} chains scanned via public explorers (DeBank unavailable).`;
   renderResults();
 }
 
