@@ -24,6 +24,17 @@ GET {explorer}/api/v2/addresses/{address}                  → native coin balan
 
 If Blockscout is unreachable, it falls back to `eth_getBalance` via a public RPC (e.g. LlamaRPC). Tokens with zero balance are dropped.
 
+## Deploy to Vercel
+
+This is a static site with no dependencies or build step. Import this Git repository in Vercel and use:
+
+- **Framework preset:** Other
+- **Build command:** leave empty
+- **Output directory:** `.` (repository root)
+- **Install command:** leave empty
+
+The included `vercel.json` enables clean URLs and disables trailing slashes. Vercel will serve `index.html`, `styles.css`, and `app.js` directly.
+
 ## Run locally
 
 Any static server works:
