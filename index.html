@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EVM Asset Radar — Detect real assets on all EVM chains</title>
+  <meta name="description" content="Lightweight browser-only detector: paste any EVM address and see real native + ERC-20 assets across 15 chains, then continue on Debank." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark" aria-hidden="true">📡</span>
+        <span class="brand-text">EVM Asset Radar</span>
+        <span class="brand-badge">lightweight</span>
+      </a>
+      <nav class="topnav">
+        <a href="#scanner">Scanner</a>
+        <a href="#chains">Chains</a>
+        <a href="#how">How it works</a>
+        <a id="navDebank" class="btn btn-ghost btn-sm" href="https://debank.com" target="_blank" rel="noopener noreferrer">Open Debank ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO + SCANNER -->
+    <section class="hero" id="scanner">
+      <div class="wrap">
+        <p class="eyebrow">Browser-only · No API key · No signup</p>
+        <h1>Detect real assets on <span class="accent">all EVM chains</span></h1>
+        <p class="lede">
+          Paste any <code>0x…</code> address. We scan 15 EVM networks in parallel
+          for native coins + ERC-20 tokens with a real balance, then hand you off
+          to <strong>Debank</strong> for the full portfolio view.
+        </p>
+
+        <form id="scanForm" class="scanner" autocomplete="off" novalidate>
+          <div class="scanner-row">
+            <span class="scanner-icon" aria-hidden="true">⌕</span>
+            <input
+              id="addressInput"
+              type="text"
+              inputmode="text"
+              spellcheck="false"
+              placeholder="Paste EVM address  —  0x… (40 hex chars)"
+              aria-label="EVM address"
+              maxlength="42"
+            />
+            <button type="button" id="pasteBtn" class="btn btn-ghost" title="Paste from clipboard">Paste</button>
+            <button type="submit" id="scanBtn" class="btn btn-primary">Scan all chains →</button>
+          </div>
+          <div class="scanner-meta">
+            <span id="formError" class="form-error" role="alert" hidden></span>
+            <span class="hint">Works for Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche &amp; more.</span>
+          </div>
+        </form>
+
+        <div class="samples">
+          <span>Try:</span>
+          <button class="chip" data-sample="0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B" title="Vitalik Buterin — Ethereum founder">Vitalik</button>
+          <button class="chip" data-sample="0x0000000000000000000000000000000000000000" title="Zero address (empty)">Zero address</button>
+          <span class="samples-note">or use your own wallet address</span>
+        </div>
+
+        <div class="hero-stats">
+          <div class="hero-stat"><strong id="statChains">15</strong><span>EVM chains scanned</span></div>
+          <div class="hero-stat"><strong>0</strong><span>API keys needed</span></div>
+          <div class="hero-stat"><strong>100%</strong><span>runs in your browser</span></div>
+          <div class="hero-stat"><strong>↗ Debank</strong><span>one-click handoff</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="results" class="results" hidden>
+      <div class="wrap">
+        <div class="results-head">
+          <div>
+            <p class="eyebrow">Scan results</p>
+            <h2>Real assets detected</h2>
+            <p class="muted mono" id="resultAddress">—</p>
+          </div>
+          <div class="results-actions">
+            <button id="copyAddressBtn" class="btn btn-ghost btn-sm" type="button">Copy address</button>
+            <button id="copyLinkBtn" class="btn btn-ghost btn-sm" type="button">Copy share link</button>
+            <a id="debankMainBtn" class="btn btn-primary btn-sm" href="#" target="_blank" rel="noopener noreferrer">View on Debank ↗</a>
+          </div>
+        </div>
+
+        <div id="scanProgress" class="progress" aria-live="polite">
+          <div class="progress-bar"><span id="progressFill"></span></div>
+          <span id="progressText">Scanning…</span>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card"><span>Chains with assets</span><strong id="sumChains">0</strong></div>
+          <div class="summary-card"><span>Tokens (balance &gt; 0)</span><strong id="sumTokens">0</strong></div>
+          <div class="summary-card"><span>Est. value (where priced)</span><strong id="sumUsd">$0.00</strong></div>
+          <div class="summary-card summary-card--debank">
+            <span>Full portfolio incl. DeFi &amp; NFTs</span>
+            <a id="debankSummaryLink" href="#" target="_blank" rel="noopener noreferrer">Continue on Debank →</a>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <label class="check"><input type="checkbox" id="onlyActive" checked /> Only chains with assets</label>
+          <label class="check"><input type="checkbox" id="hideDust" /> Hide dust (&lt; $0.01)</label>
+          <input id="tokenSearch" type="search" placeholder="Filter token / symbol…" aria-label="Filter tokens" />
+        </div>
+
+        <div id="emptyState" class="empty" hidden>
+          <div class="empty-icon">🔍</div>
+          <h3>No assets found on the scanned chains</h3>
+          <p>This address holds no native or ERC-20 balance on the 15 networks checked — or the explorers were unreachable. Debank indexes more (DeFi positions, NFTs, non-EVM chains).</p>
+          <a id="debankEmptyBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">Check full portfolio on Debank ↗</a>
+        </div>
+
+        <div id="chainGrid" class="chain-grid"></div>
+
+        <p class="disclaimer">
+          Balances come from public Blockscout APIs (no key) with public-RPC fallback for native coins.
+          USD values use the explorer's exchange rate where available and are estimates only.
+          This tool does not custody funds or sign transactions. Debank is a third-party service.
+        </p>
+      </div>
+    </section>
+
+    <!-- CHAINS -->
+    <section id="chains" class="section">
+      <div class="wrap">
+        <p class="eyebrow">Coverage</p>
+        <h2>15 EVM chains, scanned in parallel</h2>
+        <p class="muted">Each chain is queried independently — a slow or down explorer never blocks the others. Results stream in as they arrive.</p>
+        <div id="chainList" class="chain-list"></div>
+      </div>
+    </section>
+
+    <!-- HOW -->
+    <section id="how" class="section section-alt">
+      <div class="wrap">
+        <p class="eyebrow">How it works</p>
+        <h2>Lightweight by design</h2>
+        <div class="how-grid">
+          <article class="how-card">
+            <span class="how-num">1</span>
+            <h3>Paste an address</h3>
+            <p>Any <code>0x…</code> EVM address. We validate the format locally — nothing is sent to our server (there is none).</p>
+          </article>
+          <article class="how-card">
+            <span class="how-num">2</span>
+            <h3>We query public explorers</h3>
+            <p>For each chain we call Blockscout's free <code>/api/v2/addresses/{address}/token-balances</code> endpoint and the address endpoint for the native coin. No API key, CORS-friendly.</p>
+          </article>
+          <article class="how-card">
+            <span class="how-num">3</span>
+            <h3>Only real balances</h3>
+            <p>Tokens with zero balance are dropped. What you see is what the chain reports right now — native + ERC-20, with USD estimates where priced.</p>
+          </article>
+          <article class="how-card">
+            <span class="how-num">4</span>
+            <h3>Continue on Debank</h3>
+            <p>Every result links to <code>debank.com/profile/{address}</code> — overall and per-chain — for DeFi positions, NFTs, history and the full portfolio.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>📡 EVM Asset Radar — static, dependency-free, runs entirely in your browser.</span>
+      <span class="muted">Data: Blockscout public APIs · Handoff: <a href="https://debank.com" target="_blank" rel="noopener noreferrer">Debank ↗</a></span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
