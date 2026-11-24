@@ -142,7 +142,48 @@ async function scanChain(chain, address) {
   return { chain, native, nativeUsd, tokens, totalUsd, hasAssets, error };
 }
 
-/* ---------- DeBank data adapter ---------- */
+/* ---------- OKX data adapter ---------- */
+async function scanWithOkx(address) {
+  const payload = await fetchJson(`/api/okx?address=${encodeURIComponent(address)}`, 15000);
+  if (!payload || !Array.isArray(payload.tokens)) throw new Error("OKX API unavailable");
+
+  const byChain = new Map(CHAINS.map((chain) => [String(chain.chainId), []]));
+  for (const item of payload.tokens) {
+    const chainId = String(item.chainIndex || "");
+    if (byChain.has(chainId) && item.isRiskToken !== true) byChain.get(chainId).push(item);
+  }
+
+  return CHAINS.map((chain) => {
+    const listed = byChain.get(String(chain.chainId)) || [];
+    let native = null;
+    let nativeUsd = 0;
+    const tokens = [];
+    for (const item of listed) {
+      const balance = Number(item.balance || 0);
+      if (!(balance > 0)) continue;
+      const price = Number(item.tokenPrice || 0);
+      const usd = balance * price;
+      const tokenAddress = String(item.tokenAddress || "");
+      const isNative = !tokenAddress || /^0x0{40}$/i.test(tokenAddress);
+      if (isNative) {
+        native = (native || 0) + balance;
+        nativeUsd += usd;
+      } else {
+        tokens.push({
+          symbol: item.symbol || "?", name: item.tokenName || item.symbol || "Unknown token",
+          address: tokenAddress, decimals: Number(item.decimals || 0),
+          balance, usd, type: "ERC-20", tokenId: null,
+        });
+      }
+    }
+    tokens.sort((a, b) => b.usd - a.usd);
+    const totalUsd = nativeUsd + tokens.reduce((sum, token) => sum + token.usd, 0);
+    const hasAssets = (native != null && native > 0) || tokens.length > 0;
+    return { chain, native, nativeUsd, tokens, totalUsd, hasAssets, error: null };
+  });
+}
+
+/* ---------- DeBank fallback data adapter ---------- */
 async function scanWithDebank(address) {
   const payload = await fetchJson(`/api/debank?address=${encodeURIComponent(address)}`, 15000);
   if (!payload || !Array.isArray(payload.tokens)) throw new Error("DeBank API unavailable");
@@ -280,15 +321,25 @@ async function runScan(address) {
   resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
 
   try {
-    scanResults = await scanWithDebank(address);
+    scanResults = await scanWithOkx(address);
     updateProgress(CHAINS.length, CHAINS.length);
-    progressText.textContent = `Done — ${CHAINS.length} chains scanned via DeBank.`;
+    progressText.textContent = `Done — ${CHAINS.length} chains scanned via OKX.`;
     renderResults();
     return;
   } catch {
-    // The static preview/local server or an unconfigured Vercel deployment
-    // has no DeBank proxy; retain the existing public-explorer scan as fallback.
-    progressText.textContent = "DeBank unavailable — using public explorers…";
+    progressText.textContent = "OKX unavailable — trying DeBank…";
+  }
+
+  try {
+    scanResults = await scanWithDebank(address);
+    updateProgress(CHAINS.length, CHAINS.length);
+    progressText.textContent = `Done — ${CHAINS.length} chains scanned via DeBank fallback.`;
+    renderResults();
+    return;
+  } catch {
+    // The static preview/local server or unconfigured deployment has no
+    // provider proxy; use the public explorer and RPC fallback instead.
+    progressText.textContent = "Provider APIs unavailable — using public explorers…";
   }
 
   let done = 0;
@@ -308,7 +359,7 @@ async function runScan(address) {
       done++; updateProgress(done, CHAINS.length); renderResults();
     }
   }));
-  progressText.textContent = `Done — ${CHAINS.length} chains scanned via public explorers (DeBank unavailable).`;
+  progressText.textContent = `Done — ${CHAINS.length} chains scanned via public explorers (OKX/DeBank unavailable).`;
   renderResults();
 }
 
